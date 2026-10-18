@@ -97,3 +97,17 @@
 - 判斷要「新鮮」：事實時間距今 2 秒內，而且必須是這段 approaching 開始之後的事實；晚回來的舊判斷不能蓋掉新判斷。
 - 規則沒有「想互動」的概念，比較面板裡規則的 intent 只能用狀態機進度推：停留滿 dwell 算 engage、之前是 pending、不夠近是 passing。
   pending 時不列入一致率。這本身就是文章素材：**規則只能等時間到，Jev 可以在 dwell 之前就給機率。**
+
+### 換引擎的實驗：感知層介面改了什麼（選項 A 的結果）
+
+v1 照第一篇的設計維持同步介面，到 v2 才為了 JevImageProvider 改。`git diff v1-mediapipe -- app/lib/judgment/` 是空的——**判定層真的一行都沒改**。
+要改的是感知層介面和偵測迴圈，因為 v1 的介面其實是照 MediaPipe 的形狀設計的：
+
+1. `detect()` 從同步改成回傳 `Promise<FrameFacts>`。MediaPipe 是同步推論，遠端引擎要打網路。
+2. 偵測迴圈加 in-flight 保護：上一次推論沒結束不送下一幀。MediaPipe 時代不需要，因為同步呼叫天生不會重疊。
+   另外加 generation 計數，停止或切換引擎時把還在途的舊結果丟掉。
+3. `FrameFacts` 加了選填的 `waving?: number`。v1 假設每個引擎都能給 21 個關節點，揮手由判定層追蹤手腕軌跡；
+   Jev 看單張圖給不出關節點，只能直接給「像在揮手」的機率。
+4. `ProviderInfo` 的 delegate 多了 `'remote'`。
+
+結論可以寫成：「判定層不用改」成立，但前提是感知層介面要先長對。第一版介面裡藏著三個 MediaPipe 的假設：同步、本機、有關節點。

@@ -136,7 +136,8 @@ export class MediaPipeProvider implements PerceptionProvider {
     this.info = { ...this.info, gesture: delegate }
   }
 
-  detect(video: HTMLVideoElement, t: number): FrameFacts {
+  // MediaPipe 本身是同步的，包成 Promise 以符合介面
+  async detect(video: HTMLVideoElement, t: number): Promise<FrameFacts> {
     if (!this.face) throw new Error('[mediapipe] 請先呼叫 init()')
     const handTracking = this.handTracking && this.gesture !== null
     return {
