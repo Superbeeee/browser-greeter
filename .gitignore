@@ -1,0 +1,27 @@
+# Nuxt
+.nuxt
+.output
+.data
+.nitro
+.cache
+dist
+
+# 依賴
+node_modules
+
+# 環境變數（含 API key）
+.env
+.env.*
+!.env.example
+
+# MediaPipe wasm 與模型檔，由 pnpm setup:models 產生
+public/mediapipe/
+
+# 匯出的實驗數據
+exports/
+
+# 系統與編輯器
+.DS_Store
+.idea
+.vscode
+*.log
