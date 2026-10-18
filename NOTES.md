@@ -83,3 +83,17 @@
   好處是規則與 Jev 看到的「折返次數」定義完全一致。
 - 「已持續」只在緩衝區（5 秒）滿了而且一路在場到開頭時才寫「5.0 秒以上」，不然剛開鏡頭就有人的情況會被誤寫成「以上」。
 - 格式範例：`臉寬比 0.32，已持續 1.0 秒，趨勢變大；手腕在 0.8 秒內水平折返 3 次，擺幅 0.18；目前手勢 Open_Palm（0.92）`，約 60 字。
+
+### Hybrid adapter：判定層有沒有改？
+
+- **`usePresenceStateMachine.ts` 一行都沒動。** adapter 先讓 `stepPresence` 照常算，再決定採不採用：
+  規則想從 approaching 進 greeted 時多一道關卡，Jev 的 P(想互動) ≥ 0.6 才放行。
+- 被擋下時不是丟掉整個新 state，而是「採用規則算出的其他欄位（臉寬比、最後在場時間），只把 phase / phaseSince 留在 approaching」。
+  如果整個丟掉，`lastNearAt` 不會更新，人還在但會被誤判成掉幀太久。
+  **這是 adapter 和狀態機唯一的耦合**：要知道 PresenceState 有 `phase`、`phaseSince` 兩個欄位。第一篇把 state 設計成不可變的值，這裡才能這樣做。
+- dwell 計時在被擋下期間繼續累積，Jev 一改口就能立刻放行，不用重新等 1 秒。
+- 關卡的四種決定：`pass`、`block-low-intent`、`block-waiting`（還沒有新鮮的判斷）、`fallback`
+  （這段 approaching 開始 5 秒內都沒拿到任何 Jev 判斷，照規則放行，避免 TypeSafe 掛掉時整個 demo 不會打招呼）。
+- 判斷要「新鮮」：事實時間距今 2 秒內，而且必須是這段 approaching 開始之後的事實；晚回來的舊判斷不能蓋掉新判斷。
+- 規則沒有「想互動」的概念，比較面板裡規則的 intent 只能用狀態機進度推：停留滿 dwell 算 engage、之前是 pending、不夠近是 passing。
+  pending 時不列入一致率。這本身就是文章素材：**規則只能等時間到，Jev 可以在 dwell 之前就給機率。**
