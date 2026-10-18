@@ -1,6 +1,7 @@
 // 實驗性：把鏡頭畫面直接送給 Jev，當成另一個感知引擎。
 // 輸出跟 MediaPipeProvider 相同格式的 FrameFacts，接到原本的判定層，驗證「換偵測引擎，判定層不用改」。
 // 注意：這個 provider 會把影像上傳到 TypeSafe；只在使用者明確開啟 Image 模式時才建立。
+import { JEV_LIMITS } from '#shared/jev/config'
 import { createJevJudge, type JevJudge, type JevRecord } from '../jev/judge'
 import { sendImage } from '../jev/transport'
 import type { FaceFact, FrameFacts, PerceptionProvider, ProviderInfo } from './types'
@@ -19,9 +20,10 @@ export interface JevImageProviderOptions {
   onRecord?: (record: JevRecord<'image'>) => void
 }
 
+// 4:3 且兩邊都不小於 Jev 的下限 280px
 export const JEV_IMAGE_OPTIONS: JevImageProviderOptions = {
-  width: 320,
-  height: 240,
+  width: 384,
+  height: 288,
   quality: 0.7,
   personThreshold: 0.5,
 }
@@ -34,6 +36,9 @@ export class JevImageProvider implements PerceptionProvider {
 
   constructor(options: Partial<JevImageProviderOptions> = {}) {
     this.options = { ...JEV_IMAGE_OPTIONS, ...options }
+    if (Math.min(this.options.width, this.options.height) < JEV_LIMITS.minImageSide) {
+      throw new Error(`[jev-image] 影像兩邊都要至少 ${JEV_LIMITS.minImageSide}px`)
+    }
     this.canvas = new OffscreenCanvas(this.options.width, this.options.height)
     // 影像不保存：describe 回傳 null，紀錄與匯出檔裡只有答案與用量
     this.judge = createJevJudge({ set: 'image', send: sendImage, describe: () => null })

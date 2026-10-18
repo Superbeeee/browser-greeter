@@ -100,5 +100,5 @@ cp .env.example .env
 ## 隱私
 
 - Rules、Hybrid 模式：影像只在瀏覽器裡推論，不會上傳。Hybrid 只送文字摘要到自己的 proxy，再由 proxy 轉給 TypeSafe。
-- Image 模式：會把縮小後的鏡頭畫面（320×240 JPEG）上傳到 TypeSafe。預設關閉，必須手動勾選同意；使用中畫面上會持續標示。
+- Image 模式：會把縮小後的鏡頭畫面（384×288 JPEG）上傳到 TypeSafe。預設關閉，必須手動勾選同意；使用中畫面上會持續標示。
 - 影像與 API key 不會出現在 log、匯出檔或 repo；proxy 關閉 SDK 的 log，只記題組、狀態碼、延遲與 token 數。

@@ -32,7 +32,7 @@ const MODES: Array<{ value: GreeterMode; label: string; hint: string }> = [
         <b>允許 Image 模式：鏡頭畫面會上傳到 TypeSafe</b>
       </label>
       <span class="detail">
-        縮成 320×240 的 JPEG，每秒最多
+        縮成 384×288 的 JPEG，每秒最多
         <input v-model.number="imageFps" type="range" min="2" max="4" step="1" :disabled="!consent" />
         {{ imageFps }} 張；不保存、不寫入 log 與匯出檔。其他模式影像都不離開瀏覽器。
       </span>
