@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { CameraStatus } from '~/composables/useCamera'
+import type { GreeterMode } from '~/composables/useGreeter'
 import { PRESENCE_CONFIG, WAVE_CONFIG } from '~/lib/judgment/config'
 import type { PresencePhase, PresenceTransition } from '~/lib/judgment/usePresenceStateMachine'
 import type { WaveMetrics } from '~/lib/judgment/useWaveDetector'
 import type { FrameFacts, ProviderInfo } from '~/lib/perception/types'
 
 const props = defineProps<{
+  mode: GreeterMode
   facts: FrameFacts | null
   phase: PresencePhase
   transitions: readonly PresenceTransition[]
@@ -75,7 +77,16 @@ const fmt = (v: number | undefined | null, digits = 2) => (v == null ? '—' : v
 
     <section>
       <h3>手勢與揮手</h3>
-      <template v-if="waveEnabled">
+      <template v-if="mode === 'image'">
+        <dl>
+          <dt>Jev P(揮手)</dt>
+          <dd>{{ fmt(facts?.waving) }}</dd>
+          <dt>揮手次數</dt>
+          <dd>{{ waveCount }}</dd>
+        </dl>
+        <p class="hint">Image 模式沒有手部關節點，揮手改用 Jev 對單張畫面的判斷</p>
+      </template>
+      <template v-else-if="waveEnabled">
         <dl>
           <dt>手勢</dt>
           <dd>
@@ -103,8 +114,10 @@ const fmt = (v: number | undefined | null, digits = 2) => (v == null ? '—' : v
       <dl>
         <dt>鏡頭</dt>
         <dd>{{ CAMERA_LABELS[cameraStatus] }}</dd>
-        <dt>Delegate</dt>
-        <dd>
+        <dt>感知引擎</dt>
+        <dd>{{ mode === 'image' ? 'Jev（遠端）' : 'MediaPipe' }}</dd>
+        <dt v-if="mode !== 'image'">Delegate</dt>
+        <dd v-if="mode !== 'image'">
           臉 {{ info?.face ?? '—' }}
           <template v-if="info?.gesture">／手 {{ info.gesture }}</template>
         </dd>

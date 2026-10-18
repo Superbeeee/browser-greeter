@@ -1,10 +1,14 @@
 <script setup lang="ts">
 const greeter = useGreeter()
+const calibration = useCalibration()
 const {
   camera,
   status,
   errorMessage,
   info,
+  mode,
+  imageConsent,
+  imageFps,
   waveEnabled,
   gestureLoading,
   connections,
@@ -14,6 +18,8 @@ const {
   waveMetrics,
   waveCount,
   reaction,
+  stateText,
+  gate,
   targetFps,
   actualFps,
   inferenceMs,
@@ -24,7 +30,7 @@ const {
   <main class="layout">
     <header>
       <h1>browser-greeter</h1>
-      <p>靠近鏡頭會打招呼，對它揮手會回應。影像只在瀏覽器裡推論，不會上傳。</p>
+      <p>MediaPipe 管看見，Jev 管判斷。靠近鏡頭會打招呼，對它揮手會回應。</p>
     </header>
 
     <div class="controls">
@@ -32,12 +38,14 @@ const {
         {{ status === 'loading' ? '載入模型中…' : '開啟鏡頭' }}
       </button>
       <button v-else class="secondary" @click="greeter.stop">停止</button>
-      <label class="toggle">
-        <input v-model="waveEnabled" type="checkbox" />
+      <label class="toggle" :class="{ disabled: mode === 'image' }">
+        <input v-model="waveEnabled" type="checkbox" :disabled="mode === 'image'" />
         揮手偵測
         <span v-if="gestureLoading" class="muted">（載入手勢模型中…）</span>
       </label>
     </div>
+
+    <ModeSwitch v-model:mode="mode" v-model:consent="imageConsent" v-model:image-fps="imageFps" class="modes" />
 
     <p v-if="errorMessage" class="error">{{ errorMessage }}</p>
     <p v-if="camera.status.value === 'denied'" class="error">
@@ -54,6 +62,7 @@ const {
         <GreetingBubble :reaction="reaction" />
       </div>
       <FactsPanel
+        :mode="mode"
         :facts="facts"
         :phase="phase"
         :transitions="transitions"
@@ -67,6 +76,16 @@ const {
         :camera-status="camera.status.value"
       />
     </div>
+
+    <ComparePanel
+      class="section"
+      :mode="mode"
+      :compare="greeter.compare"
+      :image="greeter.image"
+      :gate="gate"
+      :state-text="stateText"
+    />
+    <CalibrationPanel class="section" :calibration="calibration" :current-state="stateText" />
   </main>
 </template>
 
@@ -88,6 +107,9 @@ header p {
   display: flex;
   align-items: center;
   gap: 16px;
+  margin-bottom: 12px;
+}
+.modes {
   margin-bottom: 16px;
 }
 button {
@@ -113,6 +135,10 @@ button:disabled {
   gap: 6px;
   cursor: pointer;
 }
+.toggle.disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
 .muted {
   color: var(--muted);
   font-size: 0.85rem;
@@ -132,6 +158,9 @@ button:disabled {
 }
 .stage-wrap {
   position: relative;
+}
+.section {
+  margin-top: 24px;
 }
 @media (max-width: 860px) {
   .content {
