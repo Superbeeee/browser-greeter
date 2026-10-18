@@ -111,3 +111,21 @@ v1 照第一篇的設計維持同步介面，到 v2 才為了 JevImageProvider �
 4. `ProviderInfo` 的 delegate 多了 `'remote'`。
 
 結論可以寫成：「判定層不用改」成立，但前提是感知層介面要先長對。第一版介面裡藏著三個 MediaPipe 的假設：同步、本機、有關節點。
+
+### Image 模式（實驗性）
+
+- JevImageProvider 把畫面縮成 320×240 JPEG（品質 0.7），一次問三題：`person`（noul，有沒有清楚的人臉）、`face`（box）、`waving`（noul）。
+  P(有人) ≥ 0.5 才把 box 當成臉，臉寬比 = `right - left`（box 座標本來就是相對寬高的比例，跟 MediaPipe 的臉寬比定義一致）。
+- 跟 MediaPipe 比對臉寬比：擷取影像的那一刻，用**同一幀**跑一次 MediaPipe，等 Jev 回來再用事實時間 t 配對。
+- 揮手：單張圖看不出「來回擺動」，問的其實是「姿勢像不像在揮手」（舉起張開的手掌）。判定層的 `useWaveDetector` 在 Image 模式吃不到手腕座標，
+  所以揮手改由 `FrameFacts.waving` ≥ 0.5 觸發，不反應期沿用規則的 1500ms。**這是三種模式中唯一換掉規則的地方**。
+- 狀態機用的是跟 Rules 模式同一個、沒改過的 `usePresenceStateMachine`。
+- Jev 請求失敗時不產生事實（丟例外讓迴圈跳過），寧可這一幀沒資料，也不要假裝「沒有臉」而讓狀態機誤判有人離開。
+- 事實時間用擷取那一刻，不是回應回來的時間；判定層看到的時間仍然單調遞增，只是整體晚了一個請求的延遲。
+
+### UI 與隱私
+
+- Image 模式預設關閉：沒有勾選「允許上傳」就切不進去；取消勾選會立刻退回 Rules；使用中畫面持續顯示「影像正在上傳」。
+- 匯出檔：Hybrid 匯出含文字 state、規則與 Jev 的判定、不一致案例；Image 匯出只有答案、臉寬比與用量，`state` 欄位一律是 null。
+- build 後 grep 過 `.output/public`：沒有 SDK、endpoint、`TYPESAFE_API_KEY` 字樣。題組檔只 `import type` SDK，不會把 SDK 打包進前端。
+- 測試 Hybrid 時沒有 key：approaching 期間每秒一次請求都 503，5 秒後 fallback 照規則打招呼。fallback 的設計在這時候證明有必要。
