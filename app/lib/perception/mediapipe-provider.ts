@@ -108,6 +108,9 @@ export class MediaPipeProvider implements PerceptionProvider {
   }
 
   async setHandTracking(enabled: boolean): Promise<ProviderInfo> {
+    // 先記下想要的狀態；detect() 會同時確認模型已載入。
+    // 載入中途被關掉時，載入完成也不會誤開。
+    this.handTracking = enabled
     if (enabled && !this.gesture) {
       // 失敗時清掉，讓下次開啟可以重試
       this.gestureLoading ??= this.loadGesture().catch((err: unknown) => {
@@ -116,7 +119,6 @@ export class MediaPipeProvider implements PerceptionProvider {
       })
       await this.gestureLoading
     }
-    this.handTracking = enabled
     return this.info
   }
 
