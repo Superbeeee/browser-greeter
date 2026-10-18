@@ -53,3 +53,33 @@
 - 臉框貼到畫面頂端時，標籤會畫到 canvas 外面，改畫在框內。
 - 預覽用另一個掛在 DOM 的 video 綁同一條 MediaStream；推論用的 video 一直不在 DOM 裡。
 - 揮手開關在手勢模型載入中被關掉時，載入完成後會誤開。改成 `setHandTracking` 先記下想要的狀態，`detect()` 再同時確認模型已載入。
+
+## 第二階段：加入 Jev
+
+### TypeSafe SDK（@typesafe-ai/sdk 0.7.0）讀型別才知道的事
+
+- 官方 HTTP API 頁只寫 noul / choice / score，影像、`box`、`TypeSafe-Danger-Zone-Images` header、`jev-preview` 都只出現在 JS SDK 頁。
+- 帶影像的請求由 SDK 自動組成 `multipart/form-data`，不是 JSON 裡夾 base64；`Image.fromBase64()` 只是 SDK 端的方便方法。
+- `usage.input_tokens` / `output_tokens` 型別是 `number | null`，「API 沒回報」是合法狀態，成本計算要處理 null。
+- `box` 回答的 `confidence` 也是 `number | null`；而且 box 題**沒有「找不到」的答案**，一定回傳一個框，所以「有沒有人」要另外問一題 noul。
+- 預設會重試 2 次（408、429、5xx、連線錯誤、timeout 都重試），單次 timeout 10 秒，**沒有總時間上限**。
+  量延遲時這會灌水 p95，所以 proxy 設 `retry: { maxRetries: 0 }`。
+- `logLevel: 'debug'` 會把請求與回應 body 原樣印出（只遮 credential header）。影像、state 都會進 log，proxy 直接設 `'off'`，自己記去敏摘要。
+- SDK 在瀏覽器裡會直接丟錯拒絕執行（除非 `dangerouslyAllowBrowser: true`），從設計上逼你走 server。
+- 費率：input $0.042 / 百萬 token，output 免費（docs.typesafe.ai/models）。`jev-latest` 指向 1.13.0、`jev-preview` 指向 1.14.0；本專案寫死版本號。
+
+### Proxy
+
+- 前端只能選題組（`hybrid` / `image`）並給 state，題目、題數、模型都由 server 決定。比「照單轉發任意 System One 請求」安全，也確保比較實驗用的題目固定。
+- 限制：文字 state 2000 字元、影像 200KB 且必須是 JPEG（檢查 magic bytes）、沒有 Content-Length 一律拒絕。
+- key 直接從 server 端 `process.env.TYPESAFE_API_KEY` 讀，不放進 Nuxt `runtimeConfig`——避免 build 時被序列化進產物。
+- 上游錯誤只回狀態碼，不轉傳錯誤 body（可能回顯請求內容）。
+- 踩坑：新增 `server/` 目錄後，已經在跑的 `nuxt dev` 不會註冊新的 API route，打 `/api/jev` 會拿到 SPA 首頁的 200。要重啟 dev server。
+
+### FactSerializer
+
+- 只描述事實，不放規則的結論（例如狀態機目前在 approaching）。放了等於暗示 Jev 答案，比較實驗就不公平了。
+- 折返統計直接把緩衝區重播進判定層的 `stepWave`（門檻設成無限大，只拿 metrics），不另寫一套演算法。
+  好處是規則與 Jev 看到的「折返次數」定義完全一致。
+- 「已持續」只在緩衝區（5 秒）滿了而且一路在場到開頭時才寫「5.0 秒以上」，不然剛開鏡頭就有人的情況會被誤寫成「以上」。
+- 格式範例：`臉寬比 0.32，已持續 1.0 秒，趨勢變大；手腕在 0.8 秒內水平折返 3 次，擺幅 0.18；目前手勢 Open_Palm（0.92）`，約 60 字。
