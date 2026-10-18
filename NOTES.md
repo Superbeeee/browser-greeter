@@ -35,3 +35,21 @@
 - 揮手起點不算折返：第一段位移只用來確定方向。一開始把起點也算進去，等於少揮一下就觸發。
 - 手在寬限外重新出現時清掉舊軌跡，否則上一次殘留的折返點會跟這次拼在一起。
 - 寫測試時踩到：抖動幅度剛好等於 deadband 會被算成折返（判斷用 `>=`），測試資料要明確小於門檻。
+
+### 跑起來之後的觀察（headless Chrome + 假鏡頭）
+
+- Chrome 的 `--use-fake-device-for-media-stream` 假鏡頭畫面（綠底 + 旋轉的扇形 + 計時數字）會被 BlazeFace 當成一張臉，
+  信心值約 0.54、臉寬比 0.46，狀態機還真的走完一輪 idle → approaching → greeted → cooldown。
+  `minDetectionConfidence: 0.5` 擋不住，可以當「規則判定只看數字、不懂語意」的例子，也是第二篇讓 Jev 來判斷的伏筆。
+- GestureRecognizer 回報 GPU delegate 建立成功，但 console 會出現
+  `Hand Gesture Recognizer contains CPU only ops. Sets HandGestureRecognizerGraph acceleration to Xnnpack.`
+  ——手勢分類那段其實跑在 CPU（XNNPACK）。「delegate 建立成功」不等於「整條 graph 都在 GPU」。
+- 臉 + 手兩個模型同時開，12fps 達標，單次推論約 18ms（headless 環境，實機會不同）。
+
+### 畫面
+
+- 鏡像用 CSS `scaleX(-1)` 包住 video + canvas，overlay 照原始座標畫；文字繪製時局部 `scale(-1, 1)` 翻回來，
+  對齊方向也要反過來（`textAlign: 'right'`），不然標籤會貼在框的另一側。
+- 臉框貼到畫面頂端時，標籤會畫到 canvas 外面，改畫在框內。
+- 預覽用另一個掛在 DOM 的 video 綁同一條 MediaStream；推論用的 video 一直不在 DOM 裡。
+- 揮手開關在手勢模型載入中被關掉時，載入完成後會誤開。改成 `setHandTracking` 先記下想要的狀態，`detect()` 再同時確認模型已載入。
