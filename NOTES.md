@@ -21,3 +21,17 @@
 - `WasmFileset` 型別在 `vision.d.ts` 只有 `declare interface`、沒有 export，import 會被 type check 擋下。
   改用 `Awaited<ReturnType<typeof FilesetResolver.forVisionTasks>>` 推導。再次印證文章說的「直接 grep vision.d.ts」。
 - 手勢模型載入失敗時要把 pending promise 清掉，不然下次開揮手功能會永遠拿到同一個 rejected promise。
+
+### 判定層的設計細節（文章沒寫數值，這裡補上）
+
+- 兩個模組都寫成「純 reducer + 薄外殼」：`stepPresence(state, input, cfg)` / `stepWave(...)` 回傳新 state，
+  `usePresenceStateMachine()` / `useWaveDetector()` 只是包一層可變狀態方便逐幀呼叫。
+  state 是不可變的值，第二階段的 adapter 可以「看了結果再決定要不要採用」，不必改狀態機本身。
+- 輸入型別用 `Pick<FrameFacts, 't' | 'face'>`、`Pick<FrameFacts, 't' | 'hand'>`，判定層只認得感知層的型別。
+- 狀態機預設值：enterRatio 0.22、exitRatio 0.17（遲滯）、dwell 1000ms、greeted 顯示 2500ms、
+  離開 2000ms 才回 idle、approaching 掉幀寬限 400ms。
+- cooldown 的「離開」定義成「沒臉 **或** 臉寬比低於 exitRatio」。只看「臉消失」的話，人退到遠處但還在畫面裡就永遠回不了 idle。
+- 揮手預設值：視窗 1200ms、折返 3 次、擺幅 0.08、deadband 0.02、掉幀寬限 400ms、不反應期 1500ms。
+- 揮手起點不算折返：第一段位移只用來確定方向。一開始把起點也算進去，等於少揮一下就觸發。
+- 手在寬限外重新出現時清掉舊軌跡，否則上一次殘留的折返點會跟這次拼在一起。
+- 寫測試時踩到：抖動幅度剛好等於 deadband 會被算成折返（判斷用 `>=`），測試資料要明確小於門檻。

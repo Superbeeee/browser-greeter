@@ -4,6 +4,10 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   typescript: {
     strict: true,
+    // 測試檔也納入 type check（路徑相對於 .nuxt/）
+    tsConfig: {
+      include: ['../tests/**/*'],
+    },
   },
   app: {
     head: {
